@@ -1,8 +1,6 @@
-# Checkpoint 2 — Regressão Linear e Estabilidade da Rede Elétrica
+# Checkpoint 2 — Machine Learning Aplicado à Energia
 
-Projeto acadêmico de Machine Learning para construir e comparar dois modelos de **Regressão Linear**, utilizando o conjunto de dados **Electrical Grid Stability**.
-
-O objetivo é prever a variável numérica `stab` e avaliar como a seleção das variáveis de entrada influencia o desempenho dos modelos.
+Projeto acadêmico que aplica técnicas de classificação e regressão a dados do setor energético, incluindo fontes de geração elétrica, radiação solar e estabilidade da rede.
 
 ## Integrantes
 
@@ -15,110 +13,133 @@ O objetivo é prever a variável numérica `stab` e avaliar como a seleção das
 | Thiago Soalheiro Diamantino | 569316 |
 | Kauan Damasceno de Lima | 573727 |
 
+## Objetivos
+
+O projeto está dividido em três análises:
+
+1. **Classificação de fontes de energia:** identificar empreendimentos solares, eólicos e hidráulicos usando potência e localização.
+2. **Estimativa da radiação solar:** prever a radiação solar em Petrolina (PE) a partir de condições meteorológicas e hora local.
+3. **Estabilidade da rede elétrica:** comparar duas configurações de Regressão Linear para prever a variável `stab`.
+
 ## Tecnologias utilizadas
 
 - Python
 - Pandas e NumPy
 - Matplotlib e Seaborn
 - Scikit-learn
-- Jupyter Notebook / Google Colab
+- Jupyter Notebook e Google Colab
+- Bibliotecas nativas: `json`, `urllib` e `csv`
 
-## Dataset
+## Notebooks e dados
 
-O conjunto de dados contém **10.000 registros e 14 colunas**, sem valores ausentes na análise realizada.
-
-As colunas estão organizadas em:
-
-| Colunas | Descrição |
+| Arquivo | Conteúdo |
 |---|---|
-| `tau1` a `tau4` | Tempos de reação |
-| `p1` a `p4` | Potências de produção ou consumo |
-| `g1` a `g4` | Coeficientes de elasticidade de preço |
-| `stab` | Variável numérica de estabilidade utilizada como alvo |
-| `stabf` | Classificação categórica de estabilidade, não utilizada nos modelos |
+| `Checkpoint2_SERS.ipynb` | Classificação dos empreendimentos da ANEEL e regressão da radiação solar |
+| `RESOLVIDO_AULA_07_Regressão_Linear_com_Dados_de_Energia.ipynb` | Comparação de modelos de Regressão Linear para estabilidade da rede |
+| `aneel_classificacao_orange.csv` | Dados de classificação exportados pelo notebook |
+| `meteo_regressao_orange.csv` | Dados meteorológicos exportados pelo notebook |
 
-O CSV é carregado diretamente no notebook:
+## 1. Classificação de fontes de energia — ANEEL
 
-[Dados utilizados na atividade](https://raw.githubusercontent.com/prof-atritiack/CP2-ML-SERS/refs/heads/main/Data_for_UCI_named.csv)
+### Dados e preparação
 
-## Etapas do projeto
+São utilizados dados do **Sistema de Informações de Geração da ANEEL (SIGA)**, consultados pela API pública.
 
-1. Carregamento e exploração inicial dos dados.
-2. Verificação dos tipos de dados, valores ausentes e estatísticas descritivas.
-3. Construção da matriz de correlação e do mapa de calor.
-4. Seleção das cinco variáveis com maior correlação absoluta com `stab`.
-5. Visualização das relações por meio de gráficos de dispersão.
-6. Separação dos dados em treino e teste.
-7. Treinamento dos dois modelos de Regressão Linear.
-8. Comparação das métricas e análise dos resultados.
+A execução registrada no notebook apresenta **3.876 empreendimentos**:
 
-## Modelos avaliados
-
-### Modelo 1 — Cinco maiores correlações
-
-Utiliza as cinco variáveis com maior correlação absoluta com `stab`, excluindo a própria variável alvo:
-
-| Variável | Correlação com `stab` |
+| Fonte | Quantidade |
 |---|---:|
-| `g3` | 0,3082 |
-| `g2` | 0,2936 |
-| `tau2` | 0,2910 |
-| `g1` | 0,2828 |
-| `tau3` | 0,2807 |
+| Hidráulica | 1.476 |
+| Solar | 1.200 |
+| Eólica | 1.200 |
 
-### Modelo 2 — Todas as variáveis `tau` e `g`
+As entradas são `potencia_kw`, `latitude` e `longitude`. O alvo é `fonte`, com as classes Solar, Eólica e Hidráulica.
 
-Utiliza oito variáveis:
+As categorias `UHE`, `PCH` e `CGH` são agrupadas como Hidráulica. Nomes, códigos e siglas que identificam diretamente a fonte não são utilizados como entradas.
 
-`tau1`, `tau2`, `tau3`, `tau4`, `g1`, `g2`, `g3` e `g4`.
+A divisão é estratificada, com **80% para treino**, **20% para teste** e `random_state=42`. Para o KNN, a padronização é ajustada somente nos dados de treino.
 
-Nos dois modelos, os dados foram divididos em **80% para treinamento e 20% para teste**, utilizando `random_state=42`. Assim, ambos foram avaliados nos mesmos 2.000 registros de teste.
+### Resultados
 
-## Resultados
+| Algoritmo | Acurácia | Precisão macro | Recall macro | F1 macro |
+|---|---:|---:|---:|---:|
+| Árvore de Decisão | 0,9613 | 0,9614 | 0,9610 | 0,9612 |
+| KNN | 0,9652 | 0,9663 | 0,9636 | 0,9648 |
+| Random Forest | **0,9755** | **0,9769** | **0,9741** | **0,9753** |
+
+O **Random Forest** apresentou o melhor desempenho nas quatro métricas, com acurácia de **97,55%**.
+
+A amostra possui limites de consulta por tipo de empreendimento e não representa a participação de cada fonte na matriz energética brasileira. A data de coleta não está registrada no notebook.
+
+## 2. Estimativa da radiação solar — Open-Meteo
+
+### Dados e preparação
+
+São utilizados dados históricos do **Open-Meteo** para Petrolina (PE):
+
+- **Coordenadas:** latitude `-9.39` e longitude `-40.50`.
+- **Período:** 01/04/2025 a 30/06/2025.
+- **Fuso horário:** `America/Recife`.
+- **Horários selecionados:** das 7h às 17h.
+- **Registros válidos:** 1.001.
+
+As entradas são temperatura, umidade relativa, cobertura de nuvens, velocidade do vento e hora local.
+
+O alvo é `radiacao_w_m2`, correspondente à radiação solar global horizontal média da hora anterior, em **W/m²**.
+
+A divisão preserva a ordem temporal: **800 registros iniciais para treino** e **201 registros finais para teste**, sem embaralhamento. As transformações são ajustadas somente no treino.
+
+### Resultados
+
+| Algoritmo | MAE (W/m²) | MSE ((W/m²)²) | R² |
+|---|---:|---:|---:|
+| Regressão Linear | 145,205 | 30.034,201 | 0,360 |
+| Random Forest | **66,123** | **7.214,689** | **0,846** |
+| Gradient Boosting | 68,180 | 7.642,268 | 0,837 |
+
+O **Random Forest** apresentou o menor MAE, o menor MSE e o maior R². A variável `hora` teve a maior importância calculada pelo modelo, seguida por temperatura e umidade.
+
+Os dados são estimativas históricas de modelos/reanálise. A estimativa de radiação não corresponde diretamente à energia elétrica produzida por painéis, que também depende de área, eficiência, orientação, temperatura e perdas do sistema.
+
+## 3. Estabilidade da rede elétrica
+
+### Dados e preparação
+
+O conjunto **Electrical Grid Stability** contém **10.000 registros e 14 colunas**, sem valores ausentes na análise registrada.
+
+O alvo dos modelos é a variável numérica `stab`. A coluna categórica `stabf` não é utilizada como entrada.
+
+São comparadas duas configurações de Regressão Linear:
+
+| Modelo | Variáveis utilizadas |
+|---|---|
+| Modelo 1 | `g3`, `g2`, `tau2`, `g1` e `tau3`: cinco maiores correlações absolutas com `stab` |
+| Modelo 2 | `tau1`, `tau2`, `tau3`, `tau4`, `g1`, `g2`, `g3` e `g4` |
+
+Ambos utilizam **80% dos dados para treino**, **20% para teste** e `random_state=42`, sendo avaliados nos mesmos registros.
+
+### Resultados
 
 | Modelo | R² | MAE | MSE |
 |---|---:|---:|---:|
-| Modelo 1 — Cinco maiores correlações | 0,401770 | 0,023310 | 0,000811 |
-| Modelo 2 — Todas as variáveis `tau` e `g` | **0,645229** | **0,017553** | **0,000481** |
+| Modelo 1 | 0,401770 | 0,023310 | 0,000811 |
+| Modelo 2 | **0,645229** | **0,017553** | **0,000481** |
 
-- **R²:** quanto maior, melhor o desempenho em relação à previsão pela média.
-- **MAE:** quanto menor, menor o erro absoluto médio.
-- **MSE:** quanto menor, menor o erro quadrático médio, com maior penalização dos erros de maior magnitude.
+O **Modelo 2** apresentou melhor desempenho nas três métricas, reduzindo o MAE em aproximadamente **25%** e o MSE em aproximadamente **41%**.
 
-O **Modelo 2 apresentou o melhor desempenho nas três métricas**. Em comparação ao Modelo 1, reduziu o MAE em aproximadamente **25%** e o MSE em aproximadamente **41%**.
+A seleção por correlação foi feita sobre o conjunto completo, seguindo a atividade. Em uma avaliação rigorosa de generalização, essa seleção deve utilizar somente os dados de treino.
 
-Os resultados indicam que selecionar variáveis apenas pela correlação individual pode deixar de fora informações úteis para a previsão.
 
-## Como executar
+## Fontes dos dados
 
-### Google Colab
+- [ANEEL — SIGA](https://dadosabertos.aneel.gov.br/dataset/siga-sistema-de-informacoes-de-geracao-da-aneel)
+- [Open-Meteo — API de dados históricos](https://open-meteo.com/en/docs/historical-weather-api)
+- [Electrical Grid Stability — CSV utilizado na atividade](https://raw.githubusercontent.com/prof-atritiack/CP2-ML-SERS/refs/heads/main/Data_for_UCI_named.csv)
 
-1. Acesse o [Google Colab](https://colab.research.google.com/).
-2. Abra o notebook `.ipynb` do projeto por upload ou pela opção GitHub.
-3. Execute todas as células em ordem.
+## Conclusão
 
-### Ambiente local
+Nos experimentos registrados, o Random Forest apresentou o melhor desempenho na classificação das fontes de energia e na estimativa da radiação solar.
 
-Instale as dependências:
+Na análise de estabilidade da rede, utilizar todas as variáveis `tau` e `g` produziu resultados melhores do que selecionar somente as cinco maiores correlações individuais.
 
-```bash
-pip install pandas numpy matplotlib seaborn scikit-learn notebook
-```
-
-Inicie o Jupyter Notebook:
-
-```bash
-jupyter notebook
-```
-
-Abra o notebook do projeto e execute as células sequencialmente.
-
-> É necessário acesso à internet para carregar o CSV pela URL utilizada no notebook.
-
-## Considerações finais
-
-Entre as configurações avaliadas, o modelo com todas as variáveis `tau` e `g` foi a melhor opção para prever `stab`, explicando aproximadamente **64,5% da variação observada no conjunto de teste**.
-
-A seleção por correlação foi realizada sobre o conjunto completo, conforme a sequência proposta na atividade. Em uma avaliação com separação rigorosa entre treino e teste, essa seleção deve ser feita apenas com os dados de treinamento.
-
-Projeto desenvolvido para o **Checkpoint 2 — 2º semestre de 2026**.
+As análises mostram a importância da seleção de atributos, da separação adequada entre treino e teste e da comparação de modelos por múltiplas métricas.
